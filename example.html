@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Solara Visual Mapper - Example</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #333;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    .hero-title {
+      font-size: 2.5em;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+    
+    .hero-subtitle {
+      font-size: 1.2em;
+      color: #666;
+    }
+    
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin: 30px 0;
+    }
+    
+    .feature-card {
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .feature-icon {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+    
+    .cta-section {
+      text-align: center;
+      margin-top: 40px;
+      padding: 30px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    
+    .primary-button {
+      display: inline-block;
+      padding: 12px 30px;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    
+    .primary-button:hover {
+      background: #5568d3;
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #e0e0e0;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" data-code-id="main-container">
+    <header data-code-id="header-section">
+      <h1 class="hero-title" data-code-id="hero-title">Solara Visual Mapper</h1>
+      <p class="hero-subtitle" data-code-id="hero-subtitle">Real-time code-to-preview highlighting for modern web development</p>
+    </header>
+    
+    <section class="feature-grid" data-code-id="features-grid">
+      <div class="feature-card" data-code-id="feature-highlighting">
+        <div class="feature-icon">✨</div>
+        <h3>Smart Highlighting</h3>
+        <p>Move your cursor in the code and watch elements highlight in real-time.</p>
+      </div>
+      
+      <div class="feature-card" data-code-id="feature-navigation">
+        <div class="feature-icon">🎯</div>
+        <h3>Click Navigation</h3>
+        <p>Click any element in the preview to jump directly to its code location.</p>
+      </div>
+      
+      <div class="feature-card" data-code-id="feature-modes">
+        <div class="feature-icon">🚀</div>
+        <h3>Multiple Modes</h3>
+        <p>Support for static HTML, dev servers, and production builds.</p>
+      </div>
+    </section>
+    
+    <section class="cta-section" data-code-id="cta-section">
+      <h2 id="cta-heading">Ready to boost your productivity?</h2>
+      <p>Try moving your cursor over different elements in the code to see the magic happen!</p>
+      <a href="#" class="primary-button" id="submit-btn">Get Started</a>
+    </section>
+    
+    <footer data-code-id="footer-section">
+      <p>&copy; 2025 Solara Visual Mapper. Built with ❤️ for developers.</p>
+    </footer>
+  </div>
+</body>
+</html>
