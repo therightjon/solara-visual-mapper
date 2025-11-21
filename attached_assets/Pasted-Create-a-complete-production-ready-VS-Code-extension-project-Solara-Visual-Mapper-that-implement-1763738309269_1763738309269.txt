@@ -1,0 +1,297 @@
+Create a complete, production ready VS Code extension project, "Solara Visual Mapper" that implements a “code to visual preview highlighter”.
+
+---
+
+## 1. Overall goal
+
+Build a VS Code extension that:
+
+1. Opens a Webview panel that behaves like a small browser.  
+2. Can show either:
+   - A plain HTML file from the workspace.
+   - A running dev server for frameworks like React or Next.js (for example `http://localhost:3000`).
+   - A static build HTML file (for example `dist/index.html` or `out/index.html`).
+3. When I move the cursor or selection in VS Code inside a tag, the matching element in the preview is highlighted visually.  
+4. Optionally, when I click an element in the preview, it can jump back to the corresponding code location if possible.
+
+The extension should rely on VS Code’s Webview API and the standard messaging pattern: the extension backend posts messages to the webview and the webview uses `acquireVsCodeApi().postMessage` to send messages back. Use the official Webview guidance as reference for structure and security practices.
+
+---
+
+## 2. Tech stack and project setup
+
+Create a Node.js + TypeScript based VS Code extension project with the following:
+
+- `package.json` configured for a VS Code extension:
+  - `main`: `./out/extension.js`
+  - `engines.vscode`: a recent version.
+  - `activationEvents`: at least `onCommand:visualPreview.openPreview`.
+  - `contributes.commands` for:
+    - `visualPreview.openPreview`
+    - `visualPreview.setDevServerUrl`
+    - `visualPreview.selectStaticHtml`
+  - `contributes.configuration` section for a `visualPreview` configuration namespace, including:
+    - `visualPreview.defaultMode`: `"currentFile" | "devServer" | "staticHtml"`.
+    - `visualPreview.devServerUrl`: string.
+
+- Dev dependencies:
+  - `typescript`
+  - `@types/node`
+  - `vscode`
+  - `@types/vscode`
+
+- `tsconfig.json`:
+  - `outDir: "out"`
+  - `rootDir: "src"`
+  - `module: "commonjs"`
+  - `target: "es2020"`
+  - `strict: true`
+
+Set up npm scripts:
+
+- `"compile": "tsc -p ."`
+- `"watch": "tsc -w"`
+- `"vscode:prepublish": "npm run compile"`
+
+---
+
+## 3. File and folder structure
+
+Create this structure:
+
+- `package.json`
+- `tsconfig.json`
+- `src/extension.ts`
+- `src/highlightMapping.ts`  (small module that maps editor context to a DOM selector)
+- `media/preview.js`  (front end script for the webview)
+- `README.md`
+- `.vscode/launch.json` to run the extension in the VS Code Extension Development Host.
+- `.vscode/extensions.json` with basic recommendations if needed.
+
+---
+
+## 4. Extension behavior and commands
+
+### 4.1 Command: `visualPreview.openPreview`
+
+When this command runs:
+
+1. Open a Webview panel titled **“Visual Preview”** in the column beside the active editor.
+2. Decide preview mode:
+   - Read `visualPreview.defaultMode` from configuration.
+   - If mode is `"currentFile"` and the active editor is an `.html` file, preview that file as static HTML.
+   - If mode is `"devServer"` and `visualPreview.devServerUrl` is set, load that URL in an iframe inside the webview.
+   - If mode is `"staticHtml"` and there is a stored static HTML path in workspace state, load that file.
+3. Webview options:
+   - `enableScripts: true`.
+   - Use a CSP and nonce for any inline scripts if you need them.
+4. The webview HTML should include:
+   - A single `<iframe id="preview-frame">` that either:
+     - Uses `srcdoc` for inline HTML (for plain or static HTML files), or
+     - Uses `src` pointing at the dev server URL.
+   - A `<script>` tag that loads `media/preview.js` via `webview.asWebviewUri`.
+   - Basic styles for the highlight overlay.
+
+### 4.2 Command: `visualPreview.setDevServerUrl`
+
+When run:
+
+1. Prompt the user for a dev server URL (for example `http://localhost:3000`).
+2. Validate that it is a non empty string.
+3. Save it to the `visualPreview.devServerUrl` setting or to workspace state.
+4. Optionally offer to switch `visualPreview.defaultMode` to `"devServer"`.
+
+### 4.3 Command: `visualPreview.selectStaticHtml`
+
+When run:
+
+1. Open a file picker dialog.
+2. Let the user choose a single `.html` file, typically from a `dist`, `build`, `out`, or similar folder.
+3. Store the URI in workspace state (for example under key `visualPreview.staticHtmlUri`).
+4. Optionally set `visualPreview.defaultMode` to `"staticHtml"`.
+
+### 4.4 Listening to cursor changes
+
+In `extension.ts`:
+
+1. Subscribe to `vscode.window.onDidChangeTextEditorSelection`.
+2. For the active text editor:
+   - On selection change, call a function from `highlightMapping.ts`, passing:
+     - The document.
+     - The primary cursor position.
+   - That function should return either:
+     - A CSS selector string like `[data-code-id="hero-title"]`, `#submit-btn`, `.primary-button`, or
+     - `undefined` if no suitable selector can be inferred.
+3. If a selector is returned, send a message to the webview via `panel.webview.postMessage`:
+   ```ts
+   { type: 'highlight-element', selector, meta: { source: 'cursor' } }
+   ```
+4. Make sure this does not spam the webview. If necessary, debounce the messages slightly.
+
+---
+
+## 5. `highlightMapping.ts` logic
+
+In `src/highlightMapping.ts`, implement a pure function like:
+
+```ts
+export function selectorFromContext(
+  document: vscode.TextDocument,
+  position: vscode.Position
+): string | undefined;
+```
+
+Behavior:
+
+1. Look at the line containing the cursor and possibly a couple of lines around it.
+2. For plain HTML:
+   - If the line contains `data-code-id="..."` or `data-code-id={'...'}`, extract that value and return `[data-code-id="VALUE"]`.
+   - Else if the line contains `id="..."` or `id={'...'}`, return `#VALUE`.
+   - Else if the line contains `class="a b c"` or `className="a b c"`, take the first class and return `.a`.
+3. For JSX or TSX:
+   - Treat `className`, `id`, and `data-*` similarly.
+   - Use simple string parsing or a small regex only. No heavy AST parsing is required right now.
+4. If no useful attribute is found, return `undefined`.
+
+Comment this function clearly so it is easy to evolve later.
+
+---
+
+## 6. Webview front end script: `media/preview.js`
+
+In `media/preview.js`:
+
+1. Acquire the VS Code API object once:
+   ```js
+   const vscode = acquireVsCodeApi();
+   ```
+2. Get a reference to the iframe with id `preview-frame`.
+3. Listen for messages from the extension:
+   ```js
+   window.addEventListener('message', (event) => {
+     const { type, selector } = event.data || {};
+     if (type === 'highlight-element' && selector) {
+       highlightElement(selector);
+     }
+   });
+   ```
+4. Implement `highlightElement(selector)`:
+   - Get the iframe’s `contentDocument`.
+   - Remove any existing highlight class from previously highlighted elements.
+   - Use `querySelector(selector)` to find the element.
+   - If found:
+     - Add a CSS class like `vscode-highlighted-element`.
+     - Scroll it into view using:
+       ```js
+       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+       ```
+5. Add a click handler inside the iframe on load:
+   - On `frame` load, attach an event listener to:
+     ```js
+     doc.addEventListener('click', (e) => { ... });
+     ```
+   - When an element is clicked, walk up the DOM tree looking for attributes in this order:
+     - `data-code-id`
+     - `id`
+     - `class`
+   - Send a message back with whichever you find:
+     ```js
+     vscode.postMessage({
+       type: 'focus-code',
+       attributeType: 'data-code-id',
+       value: codeId
+     });
+     ```
+6. Style `.vscode-highlighted-element` in the webview HTML to use a visible outline or overlay, for example a thick outline color and maybe a subtle background.
+
+---
+
+## 7. Handling messages from the webview in `extension.ts`
+
+In `extension.ts`, when creating the webview panel:
+
+- Register an `onDidReceiveMessage` handler.
+- When `type === 'focus-code'`:
+  1. Try to locate the best matching code location in the current document:
+     - Search for `data-code-id="value"` or similar attribute.
+     - If that fails, search for `id="value"` or the first occurrence of that class name.
+  2. If found:
+     - Set the editor selection to that range.
+     - Reveal the range with `editor.revealRange`.
+
+This “reverse mapping” can be approximate. Implement it in a simple, readable way.
+
+---
+
+## 8. Mode handling: HTML, dev server, static build
+
+In `extension.ts`, implement logic so the webview can handle:
+
+### 8.1 Plain HTML
+
+- If mode is `"currentFile"` and the active file ends with `.html`, read the file content with `vscode.workspace.fs.readFile`.
+- Convert `Uint8Array` to string.
+- Inject that HTML into the iframe via `srcdoc`.  
+  Be sure to escape properly if needed or wrap it in a template string.
+
+### 8.2 Dev server (React, Next.js, etc.)
+
+- If mode is `"devServer"` and `visualPreview.devServerUrl` is set, do not read files.
+- Let the iframe `src` be the dev server URL.
+- Document clearly that the extension does not start or manage the dev server.  
+  The user must run `npm run dev`, `next dev`, or similar separately.
+
+### 8.3 Static build (React, Next.js, etc.)
+
+- If mode is `"staticHtml"`, and there is a stored static HTML file URI, read that file and use its contents as `srcdoc` just like plain HTML.
+- This allows the user to preview compiled output from frameworks without running a dev server.
+
+You do not need to implement bundling of React or Next inside the extension.  
+Assume the project’s own build pipeline produces the static output, or that a dev server is already running.
+
+---
+
+## 9. UX and performance
+
+- Add a small status bar item that shows `Preview: currentFile / devServer / staticHtml`, so the user can see the current mode.
+- Make the highlight behavior feel responsive. Use lightweight logic and avoid heavy parsing.
+- Handle errors gracefully:
+  - If dev server is unreachable, show a friendly message in the webview instead of failing silently.
+  - If static HTML file is missing, prompt the user to re select it.
+
+---
+
+## 10. README
+
+Create a `README.md` that explains:
+
+1. What the extension does.
+2. How to install and run the extension in VS Code:
+   - `npm install`
+   - `npm run compile`
+   - Press `F5` to launch the Extension Development Host from VS Code.
+3. How to use each mode:
+   - Plain HTML.
+   - Dev server mode for React and Next.js.
+   - Static build mode.
+4. How to tag elements with attributes like `data-code-id` and how the mapping works.
+5. Any known limitations.
+
+---
+
+## 11. Quality expectations
+
+- Code must be clean, idiomatic TypeScript.
+- Add comments where logic may be non obvious, especially in `highlightMapping.ts` and `preview.js`.
+- Keep functions small and focused.
+- Make sure the project compiles with `npm run compile` without TypeScript errors.
+- Ensure the extension can be packaged later with `vsce` if I want to publish it.
+
+---
+
+## 12. Final instructions
+
+At the end, show me:
+
+- A summary of the created files.
+- Exact steps I should follow to open this folder in VS Code and test the extension.
