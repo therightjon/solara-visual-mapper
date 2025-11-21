@@ -1,0 +1,63 @@
+{
+  "name": "solara-visual-mapper",
+  "displayName": "Solara Visual Mapper",
+  "description": "Code to visual preview highlighter for HTML, React, and Next.js projects",
+  "version": "1.0.0",
+  "publisher": "solara",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:visualPreview.openPreview"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "visualPreview.openPreview",
+        "title": "Open Visual Preview"
+      },
+      {
+        "command": "visualPreview.setDevServerUrl",
+        "title": "Set Dev Server URL"
+      },
+      {
+        "command": "visualPreview.selectStaticHtml",
+        "title": "Select Static HTML File"
+      }
+    ],
+    "configuration": {
+      "title": "Visual Preview",
+      "properties": {
+        "visualPreview.defaultMode": {
+          "type": "string",
+          "enum": [
+            "currentFile",
+            "devServer",
+            "staticHtml"
+          ],
+          "default": "currentFile",
+          "description": "Default preview mode: currentFile, devServer, or staticHtml"
+        },
+        "visualPreview.devServerUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL of the development server (e.g., http://localhost:3000)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.3.0"
+  }
+}
