@@ -2,18 +2,18 @@
 
 A VS Code extension that provides real-time bidirectional highlighting between your code and HTML preview. Move your cursor in the code, and see the corresponding element highlight in the preview. Click an element in the preview to jump to its code location.
 
-**⭐ Recommended Modes**: For full bidirectional functionality, use **Current File** mode for development or **Static Build** mode for compiled output. Dev Server mode is limited to visual-only preview due to browser security restrictions.
+**⭐ NEW in V2**: Dev Server mode now supports **full bidirectional highlighting** with the optional Solara client script! Add it to your React/Next.js app for cursor-to-element highlighting and click-to-code navigation in dev server mode.
 
 ## Features
 
 - **Three Preview Modes**:
   - **Current File** ✅ (Full bidirectional highlighting): Preview plain HTML files from your workspace
   - **Static Build** ✅ (Full bidirectional highlighting): Preview compiled HTML from build folders (dist, out, etc.)
-  - **Dev Server** ⚠️ (Visual preview only): Connect to running development servers (React, Next.js, etc.) - CORS limitations prevent bidirectional features
+  - **Dev Server** ✅ (Visual + Optional Interactive): Connect to running development servers (React, Next.js, etc.) - Now supports full bidirectional features with the optional Solara client script!
 
-- **Cursor-to-Element Highlighting** (currentFile & staticHtml modes): As you move your cursor through HTML/JSX code, matching elements in the preview are highlighted automatically
+- **Cursor-to-Element Highlighting**: As you move your cursor through HTML/JSX code, matching elements in the preview are highlighted automatically (works in all modes, dev server requires client script)
 
-- **Click-to-Code Navigation** (currentFile & staticHtml modes): Click elements in the preview to jump to their code location
+- **Click-to-Code Navigation**: Click elements in the preview to jump to their code location (works in all modes, dev server requires client script)
 
 - **Smart Attribute Detection**: Supports `data-code-id`, `id`, and `class` attributes for mapping across multiple lines
 
@@ -101,7 +101,98 @@ vsce package
 
 **Important Notes**: 
 - The extension does NOT start or manage your dev server. You must run it separately.
-- **CORS Limitation**: Due to browser security restrictions, bidirectional highlighting and click-to-code navigation may not work with external dev servers. For full functionality, use **currentFile** or **staticHtml** modes instead. Dev server mode is best for visual-only preview.
+- **CORS Limitation**: By default, dev server mode is visual-only due to browser security. However, you can enable **full bidirectional features** (highlighting + click-to-code) by adding the Solara client script to your app. See the "Dev Server Interactive Mode" section below.
+
+#### Dev Server Interactive Mode (V2)
+
+**NEW**: Enable bidirectional highlighting and click-to-code in dev server mode!
+
+While inline HTML and static builds can be controlled directly by the extension, dev servers run in a different origin which prevents direct DOM access. The Solara client script bridges this gap using a secure `postMessage` protocol.
+
+**How It Works:**
+1. The client script runs inside your React/Next.js app (same origin as dev server)
+2. It communicates with the VS Code extension via `window.postMessage`
+3. This enables cursor-to-element highlighting AND click-to-code navigation in dev server mode
+
+**Setup Steps:**
+
+1. **Copy the client script** from `client/solaraPreviewClient.js` into your project
+
+2. **Import and attach the client** in your app's entry point:
+
+   **For React (Vite)** - in `main.jsx` or `main.tsx`:
+   ```javascript
+   import React from 'react';
+   import ReactDOM from 'react-dom/client';
+   import App from './App';
+   import { attachSolaraPreviewClient } from './client/solaraPreviewClient';
+
+   // Attach Solara client for VS Code integration
+   attachSolaraPreviewClient();
+
+   ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+   ```
+
+   **For Next.js (App Router)** - create `app/SolaraClient.tsx`:
+   ```typescript
+   'use client';
+   import { useEffect } from 'react';
+   import { attachSolaraPreviewClient } from '../client/solaraPreviewClient';
+
+   export default function SolaraClient() {
+     useEffect(() => {
+       attachSolaraPreviewClient();
+     }, []);
+     return null;
+   }
+   ```
+
+   Then in `app/layout.tsx`:
+   ```typescript
+   import SolaraClient from './SolaraClient';
+
+   export default function RootLayout({ children }) {
+     return (
+       <html>
+         <body>
+           <SolaraClient />
+           {children}
+         </body>
+       </html>
+     );
+   }
+   ```
+
+   **For Next.js (Pages Router)** - in `pages/_app.js`:
+   ```javascript
+   import { useEffect } from 'react';
+   import { attachSolaraPreviewClient } from '../client/solaraPreviewClient';
+
+   export default function App({ Component, pageProps }) {
+     useEffect(() => {
+       attachSolaraPreviewClient();
+     }, []);
+
+     return <Component {...pageProps} />;
+   }
+   ```
+
+3. **Add highlight styles** to your global CSS:
+   ```css
+   .solara-preview-highlight {
+     outline: 2px solid #0066ff !important;
+     outline-offset: 2px !important;
+     background-color: rgba(0, 102, 255, 0.1) !important;
+   }
+   ```
+
+4. **Start your dev server** and open the Visual Preview in VS Code
+
+5. **Look for the connection status** in the preview panel:
+   - "Dev server preview • Interactive link with Solara client connected" ✅
+   - If you see "Connecting..." for more than 10 seconds, the client script may not be loaded correctly
+
+**Optional**: The client script is **completely optional**. If you don't add it, dev server mode works as a visual-only preview without any errors.
 
 ### Mode 3: Static Build
 
@@ -207,11 +298,10 @@ Uses the first class name:
 
 ## Known Limitations
 
-- **Dev Server CORS Restrictions**: Due to browser same-origin policies, the extension cannot access iframe content from external dev servers (e.g., `http://localhost:3000`). This means:
-  - **Cursor-to-element highlighting will NOT work** in devServer mode
-  - **Click-to-code navigation will NOT work** in devServer mode
-  - Dev server mode is useful for visual-only preview
-  - **Recommendation**: Use **currentFile** mode during development or **staticHtml** mode for compiled output to get full bidirectional highlighting functionality
+- **Dev Server Requires Client Script for Interactivity**: Due to browser same-origin policies, the extension cannot directly access iframe content from external dev servers (e.g., `http://localhost:3000`). To enable full bidirectional features in dev server mode:
+  - **Add the Solara client script** to your React/Next.js app (see "Dev Server Interactive Mode" section above)
+  - Without the client script, dev server mode works as visual-only preview (no errors)
+  - The client script is completely optional and uses secure `postMessage` communication
 
 - **Multiline Attribute Position**: When the cursor is on a middle line of a multiline tag (on an attribute line, not the line with `<tagName`), highlighting may not work. Move your cursor to the opening tag line or attribute value for best results.
 
@@ -243,10 +333,13 @@ Uses the first class name:
 │   ├── extension.ts         # Main extension logic
 │   └── highlightMapping.ts  # Selector extraction logic
 ├── media/
-│   └── preview.js           # Webview frontend script
-└── .vscode/
-    ├── launch.json          # Debug configuration
-    └── extensions.json      # Recommended extensions
+│   └── preview.js           # Webview frontend script (with V2 postMessage)
+├── client/
+│   └── solaraPreviewClient.js  # Optional client script for dev server mode
+├── .vscode/
+│   ├── launch.json          # Debug configuration
+│   └── extensions.json      # Recommended extensions
+└── example.html             # Sample HTML for testing
 ```
 
 ### Building

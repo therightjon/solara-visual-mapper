@@ -1,0 +1,393 @@
+Create **V2** of this project, including a new V2 branch, that adds **interactive dev server support** using a `postMessage` bridge and a small client script that runs inside the React or Next.js app.
+
+Do **not** remove or break the existing V1 features. Extend them.
+
+---
+
+## 1. High level goal for V2
+
+Add an **optional interactive bridge for dev server mode** so that when the user adds a small client script to their app, the extension can:
+
+1. Send highlight commands from VS Code to the running dev server page.  
+2. Receive click messages from the dev server page and jump back to the corresponding code.  
+
+This works around same origin restrictions by using `window.postMessage` between:
+
+- The VS Code webview parent (extension side).  
+- The dev server iframe content (React or Next.js app) that includes the client script.
+
+If the client script is **not** present, dev server mode should continue to behave exactly like V1. visual only preview with no errors.
+
+---
+
+## 2. Message protocol . parent webview ↔ dev server page
+
+Define a small JSON message protocol over `window.postMessage`.  
+Use a namespaced field to avoid collisions, for example `channel: "solara-visual-mapper"`.
+
+### 2.1 Message shape
+
+All messages in both directions must have this base shape:
+
+```ts
+type SolaraMessageBase = {
+  channel: "solara-visual-mapper";
+  type: string;
+};
+```
+
+Specific messages:
+
+- From parent webview to dev server page:
+  - `type: "hello-from-webview"`.
+  - `type: "highlight-element"` with payload:
+    ```ts
+    {
+      channel: "solara-visual-mapper";
+      type: "highlight-element";
+      selector: string;
+    }
+    ```
+
+- From dev server page to parent webview:
+  - `type: "hello-from-client"` when the client script attaches.
+  - `type: "focus-code"` when user clicks an element. payload:
+    ```ts
+    {
+      channel: "solara-visual-mapper";
+      type: "focus-code";
+      attributeType: "data-code-id" | "id" | "class";
+      value: string;
+    }
+    ```
+
+### 2.2 Handshake rules
+
+- When the dev server iframe loads, the parent webview should periodically send a `hello-from-webview` message to the iframe until it receives a matching `hello-from-client`.  
+  Use a small retry loop or simple `setInterval` with a timeout.
+- The dev server client script, once loaded, sends a single `hello-from-client` message to `window.parent` to confirm that it is listening.
+- Until the handshake completes, dev server mode should be treated as **visual only**. the extension should not assume interactive support.
+
+Store a simple `isDevClientConnected` boolean in the webview script so you know whether highlighting can be forwarded to the dev server.
+
+---
+
+## 3. Webview side changes . `media/preview.js` (or equivalent)
+
+Update the existing webview script so that it can handle two distinct paths for highlighting.
+
+Assume there is already logic that receives messages from the extension with `{ type: "highlight-element", selector }` and then:
+
+- For inline HTML or static builds. uses `iframe.contentDocument.querySelector(selector)` and applies a highlight class.
+- For dev server mode in V1. does nothing interactive, only visual.
+
+Extend this as follows.
+
+### 3.1 Detect current preview mode
+
+If you already have a concept of preview mode (for example passed in from `extension.ts`), continue to use it.  
+If not, add a lightweight mechanism where `extension.ts` sets a `data-mode` attribute on the webview HTML root or sends a message like `{ type: "preview-mode", mode: "currentFile" | "staticHtml" | "devServer" }` when the panel initializes.
+
+In `preview.js`, store the current mode in a variable:
+
+```js
+let currentMode = "currentFile"; // default
+let devClientConnected = false;
+```
+
+Process the preview mode message if you add one.
+
+### 3.2 Highlight behavior
+
+Update your `highlightElement` entry point so that it branches by mode:
+
+```js
+function onHighlightRequest(selector) {
+  if (currentMode === "devServer" && devClientConnected && previewFrame?.contentWindow) {
+    // Forward to dev server via postMessage
+    previewFrame.contentWindow.postMessage(
+      {
+        channel: "solara-visual-mapper",
+        type: "highlight-element",
+        selector
+      },
+      "*" // keep origin simple for now, but check channel
+    );
+    return;
+  }
+
+  // fallback. V1 behavior for inline or static HTML
+  highlightElementInsideFrame(selector);
+}
+```
+
+- `highlightElementInsideFrame(selector)` should keep the existing inline or static behavior using `contentDocument` and a highlight class.  
+- For dev server mode, only use `postMessage` to the iframe, never touch `contentDocument` directly.
+
+### 3.3 Listening for messages from dev server
+
+Add a `window.addEventListener("message", ...)` handler in the webview script that:
+
+1. Verifies `event.data && event.data.channel === "solara-visual-mapper"` to ignore unrelated messages.  
+2. Handles:
+   - `type === "hello-from-client"`. set `devClientConnected = true` for dev server mode.
+   - `type === "focus-code"`. forward this to the extension via `vscode.postMessage`.
+
+Example:
+
+```js
+window.addEventListener("message", (event) => {
+  const msg = event.data;
+  if (!msg || msg.channel !== "solara-visual-mapper") return;
+
+  if (msg.type === "hello-from-client") {
+    devClientConnected = true;
+    return;
+  }
+
+  if (msg.type === "focus-code") {
+    vscode.postMessage({
+      type: "focus-code",
+      attributeType: msg.attributeType,
+      value: msg.value
+    });
+  }
+});
+```
+
+### 3.4 Handshake loop
+
+After the dev server iframe loads, send a few `hello-from-webview` messages:
+
+```js
+function startDevHandshake() {
+  if (!previewFrame || !previewFrame.contentWindow) return;
+
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  const intervalId = setInterval(() => {
+    attempts += 1;
+    if (devClientConnected || attempts > maxAttempts) {
+      clearInterval(intervalId);
+      return;
+    }
+
+    previewFrame.contentWindow.postMessage(
+      {
+        channel: "solara-visual-mapper",
+        type: "hello-from-webview"
+      },
+      "*"
+    );
+  }, 1000);
+}
+```
+
+Call `startDevHandshake` when you know the mode is `devServer` and the iframe has just navigated to the dev server URL, for example inside `previewFrame.addEventListener("load", ...)` guarded by mode checks.
+
+If the handshake never succeeds, dev server mode should remain visual only without errors.
+
+---
+
+## 4. Dev server client script . `client/solaraPreviewClient.js`
+
+Create a small client side script that the user can import into their React or Next.js app.  
+This script must run **inside the dev server origin** and handle the DOM interactions there.
+
+Create a new file:
+
+- `client/solaraPreviewClient.js`
+
+### 4.1 Public API
+
+Export a function that attaches the behavior:
+
+```js
+export function attachSolaraPreviewClient(options = {}) {
+  const channel = "solara-visual-mapper";
+  const highlightClass = options.highlightClass || "solara-preview-highlight";
+
+  let lastHighlighted;
+
+  // Send hello to parent when available
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({ channel, type: "hello-from-client" }, "*");
+  }
+
+  // Receive highlight requests from parent
+  window.addEventListener("message", (event) => {
+    const msg = event.data;
+    if (!msg || msg.channel !== channel) return;
+
+    if (msg.type === "highlight-element" && typeof msg.selector === "string") {
+      highlightElement(msg.selector, highlightClass);
+    }
+
+    if (msg.type === "hello-from-webview") {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ channel, type: "hello-from-client" }, "*");
+      }
+    }
+  });
+
+  // Send focus-code messages when the user clicks
+  document.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!target || !(target instanceof Element)) return;
+
+    const payload = extractCodeIdentity(target);
+    if (!payload) return;
+
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          channel,
+          type: "focus-code",
+          attributeType: payload.attributeType,
+          value: payload.value
+        },
+        "*"
+      );
+    }
+  });
+
+  function highlightElement(selector, cls) {
+    if (lastHighlighted) {
+      lastHighlighted.classList.remove(cls);
+      lastHighlighted = undefined;
+    }
+    const el = document.querySelector(selector);
+    if (el) {
+      el.classList.add(cls);
+      lastHighlighted = el;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }
+
+  function extractCodeIdentity(el) {
+    let node = el;
+    while (node && node !== document.documentElement) {
+      if (node.hasAttribute("data-code-id")) {
+        return { attributeType: "data-code-id", value: node.getAttribute("data-code-id") };
+      }
+      if (node.id) {
+        return { attributeType: "id", value: node.id };
+      }
+      if (node.className && typeof node.className === "string") {
+        const firstClass = node.className.split(/\s+/).filter(Boolean)[0];
+        if (firstClass) {
+          return { attributeType: "class", value: firstClass };
+        }
+      }
+      node = node.parentElement;
+    }
+    return undefined;
+  }
+}
+```
+
+Also inject minimal CSS for the highlight class. you can document an example in the README rather than forcing CSS from JS.
+
+### 4.2 Usage examples
+
+In the README, document usage for:
+
+- **React** entry point, for example `main.jsx`:
+  ```js
+  import React from "react";
+  import ReactDOM from "react-dom/client";
+  import App from "./App";
+  import { attachSolaraPreviewClient } from "./client/solaraPreviewClient";
+
+  attachSolaraPreviewClient();
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  ```
+
+- **Next.js**:
+  - App Router, in `app/layout.tsx` or a `useEffect` in a top level client component:
+    ```ts
+    "use client";
+    import { useEffect } from "react";
+    import { attachSolaraPreviewClient } from "../client/solaraPreviewClient";
+
+    export default function RootLayout({ children }) {
+      useEffect(() => {
+        attachSolaraPreviewClient();
+      }, []);
+
+      return <html><body>{children}</body></html>;
+    }
+    ```
+
+The exact code in the README can be slightly simplified, but the script file itself should compile cleanly and not depend on bundler specifics.
+
+---
+
+## 5. Extension side handling of `focus-code` for dev server
+
+In `extension.ts`, you should already have a `webview.onDidReceiveMessage` handler for V1 that deals with messages like `type: "focus-code"` from the webview containing:
+
+- `attributeType`  
+- `value`
+
+Confirm that this handler works for both static HTML and dev server cases. no mode specific logic is needed if the message shape is the same.
+
+The logic for locating the code should:
+
+1. Try `data-code-id="value"` if `attributeType` is `"data-code-id"`.  
+2. Try `id="value"` if `attributeType` is `"id"`.  
+3. Try class matches if `attributeType` is `"class"`.  
+
+You can reuse or slightly adjust your existing search logic.  
+Keep it simple and readable. the mapping does not have to be perfect for v2.
+
+---
+
+## 6. Configuration and UX updates
+
+1. **Do not remove** the existing configuration keys for `visualPreview.defaultMode` and `visualPreview.devServerUrl`.  
+2. Add a short line in the README explaining that dev server interactivity requires adding `attachSolaraPreviewClient` to the app, otherwise dev server mode remains visual only.  
+3. Make sure that if the client script is missing, there are no console errors in the webview and no user facing error messages. the preview should just act as V1.
+
+Optional but nice.
+
+- Show a small note in the webview UI footer for dev server mode, for example.  
+  - If `devClientConnected === false` after handshake attempts, show.  
+    > Dev server preview. visual only. to enable click linking, add the Solara client script.  
+  - If `devClientConnected === true`, show.  
+    > Dev server preview. interactive link with Solara client connected.
+
+This note can be a small non intrusive text element in the webview.
+
+---
+
+## 7. README updates
+
+Update `README.md` to include a new section **“Dev server interactive mode”** that covers:
+
+1. A short explanation of the limitation.  
+   - Inline and static HTML can be controlled directly. dev servers are cross origin.  
+   - The client script bridges this gap.
+2. Steps to enable interactive mode:
+   - Run the dev server as usual (`npm run dev`, `next dev`, etc.).  
+   - Add `solaraPreviewClient` import and call `attachSolaraPreviewClient()` in the entry file.  
+   - Use attributes like `data-code-id` or `id` on elements that you want to map.
+3. A short warning that this is an **optional** feature. users who do not want to modify their app can still use visual only dev server previews.
+
+Keep the wording simple and practical.
+
+---
+
+## 8. Quality and constraints
+
+- Keep TypeScript and JavaScript code idiomatic and strongly typed where you touch `extension.ts`.  
+- Do not introduce breaking changes to existing commands or activation events.  
+- Keep the message protocol consistent with the shapes described above.  
+- Ensure the project still builds with the existing `npm` scripts, for example `npm run compile` or equivalent.  
+
+At the end, list:
+
+- All new or modified files, with a brief description of the change.  
+- A short, concrete checklist for the user to test dev server interactive mode in a simple React or Next.js app.

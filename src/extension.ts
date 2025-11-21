@@ -134,14 +134,25 @@ async function updatePreviewContent(context: vscode.ExtensionContext, mode: stri
 
   const nonce = getNonce();
 
-  previewPanel.webview.html = getWebviewContent(scriptUri, nonce, iframeContent, errorMessage);
+  previewPanel.webview.html = getWebviewContent(scriptUri, nonce, iframeContent, errorMessage, mode);
+  
+  // Send preview-mode message to webview after HTML is set
+  setTimeout(() => {
+    if (previewPanel) {
+      previewPanel.webview.postMessage({
+        type: 'preview-mode',
+        mode: mode
+      });
+    }
+  }, 100);
 }
 
 function getWebviewContent(
   scriptUri: vscode.Uri,
   nonce: string,
   iframeContent: string,
-  errorMessage: string
+  errorMessage: string,
+  mode: string
 ): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -176,10 +187,24 @@ function getWebviewContent(
       outline-offset: 2px !important;
       background-color: rgba(0, 122, 204, 0.1) !important;
     }
+    #connection-status {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      padding: 8px 12px;
+      background: rgba(30, 30, 30, 0.9);
+      color: #888;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 12px;
+      border-radius: 4px;
+      z-index: 10000;
+      display: ${mode === 'devServer' ? 'block' : 'none'};
+    }
   </style>
 </head>
 <body>
   ${errorMessage ? `<div class="error-message">${errorMessage}</div>` : iframeContent}
+  ${mode === 'devServer' && !errorMessage ? '<div id="connection-status">Connecting...</div>' : ''}
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;
