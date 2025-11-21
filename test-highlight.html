@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Cases for Highlight Mapping</title>
+</head>
+<body>
+    <!-- Test Case 1: Same-line siblings with intervening closing tag -->
+    <div>foo</div><span data-code-id="inner">bar</span>
+    
+    <!-- Test Case 2: Nested elements -->
+    <div data-code-id="outer"><span data-code-id="inner">text</span></div>
+    
+    <!-- Test Case 3: Multiple siblings -->
+    <div>first</div><span>second</span><p data-code-id="third">third</p>
+    
+    <!-- Test Case 4: Multiline attributes -->
+    <div 
+        class="example"
+        data-code-id="multiline"
+        id="test">
+        content
+    </div>
+</body>
+</html>

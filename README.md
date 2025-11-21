@@ -2,18 +2,20 @@
 
 A VS Code extension that provides real-time bidirectional highlighting between your code and HTML preview. Move your cursor in the code, and see the corresponding element highlight in the preview. Click an element in the preview to jump to its code location.
 
+**⭐ Recommended Modes**: For full bidirectional functionality, use **Current File** mode for development or **Static Build** mode for compiled output. Dev Server mode is limited to visual-only preview due to browser security restrictions.
+
 ## Features
 
 - **Three Preview Modes**:
-  - **Current File**: Preview plain HTML files from your workspace
-  - **Dev Server**: Connect to running development servers (React, Next.js, etc.)
-  - **Static Build**: Preview compiled HTML from build folders (dist, out, etc.)
+  - **Current File** ✅ (Full bidirectional highlighting): Preview plain HTML files from your workspace
+  - **Static Build** ✅ (Full bidirectional highlighting): Preview compiled HTML from build folders (dist, out, etc.)
+  - **Dev Server** ⚠️ (Visual preview only): Connect to running development servers (React, Next.js, etc.) - CORS limitations prevent bidirectional features
 
-- **Cursor-to-Element Highlighting**: As you move your cursor through HTML/JSX code, matching elements in the preview are highlighted automatically
+- **Cursor-to-Element Highlighting** (currentFile & staticHtml modes): As you move your cursor through HTML/JSX code, matching elements in the preview are highlighted automatically
 
-- **Click-to-Code Navigation**: Click elements in the preview to jump to their code location
+- **Click-to-Code Navigation** (currentFile & staticHtml modes): Click elements in the preview to jump to their code location
 
-- **Smart Attribute Detection**: Supports `data-code-id`, `id`, and `class` attributes for mapping
+- **Smart Attribute Detection**: Supports `data-code-id`, `id`, and `class` attributes for mapping across multiple lines
 
 - **Status Bar Indicator**: Shows current preview mode at a glance
 
@@ -97,7 +99,9 @@ vsce package
 }
 ```
 
-**Note**: The extension does NOT start or manage your dev server. You must run it separately.
+**Important Notes**: 
+- The extension does NOT start or manage your dev server. You must run it separately.
+- **CORS Limitation**: Due to browser security restrictions, bidirectional highlighting and click-to-code navigation may not work with external dev servers. For full functionality, use **currentFile** or **staticHtml** modes instead. Dev server mode is best for visual-only preview.
 
 ### Mode 3: Static Build
 
@@ -203,7 +207,13 @@ Uses the first class name:
 
 ## Known Limitations
 
-- **CORS Restrictions**: Dev server mode may not support click-to-code navigation due to cross-origin security policies. Use `data-code-id` attributes in your source code for best results.
+- **Dev Server CORS Restrictions**: Due to browser same-origin policies, the extension cannot access iframe content from external dev servers (e.g., `http://localhost:3000`). This means:
+  - **Cursor-to-element highlighting will NOT work** in devServer mode
+  - **Click-to-code navigation will NOT work** in devServer mode
+  - Dev server mode is useful for visual-only preview
+  - **Recommendation**: Use **currentFile** mode during development or **staticHtml** mode for compiled output to get full bidirectional highlighting functionality
+
+- **Multiline Attribute Position**: When the cursor is on a middle line of a multiline tag (on an attribute line, not the line with `<tagName`), highlighting may not work. Move your cursor to the opening tag line or attribute value for best results.
 
 - **Approximate Matching**: The extension uses simple regex-based parsing. Complex or minified code may not map accurately.
 

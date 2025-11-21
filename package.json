@@ -11,7 +11,9 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:visualPreview.openPreview"
+    "onCommand:visualPreview.openPreview",
+    "onCommand:visualPreview.setDevServerUrl",
+    "onCommand:visualPreview.selectStaticHtml"
   ],
   "main": "./out/extension.js",
   "contributes": {
