@@ -133,8 +133,9 @@ async function updatePreviewContent(context: vscode.ExtensionContext, mode: stri
   );
 
   const nonce = getNonce();
+  const cspSource = previewPanel.webview.cspSource;
 
-  previewPanel.webview.html = getWebviewContent(scriptUri, nonce, iframeContent, errorMessage, mode);
+  previewPanel.webview.html = getWebviewContent(scriptUri, nonce, cspSource, iframeContent, errorMessage, mode);
   
   // Send preview-mode message to webview after HTML is set
   // Increased timeout from 100ms to 500ms to ensure webview is ready
@@ -153,6 +154,7 @@ async function updatePreviewContent(context: vscode.ExtensionContext, mode: stri
 function getWebviewContent(
   scriptUri: vscode.Uri,
   nonce: string,
+  cspSource: string,
   iframeContent: string,
   errorMessage: string,
   mode: string
@@ -162,7 +164,7 @@ function getWebviewContent(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src *; script-src 'nonce-${nonce}'; style-src 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src *; script-src 'nonce-${nonce}' ${cspSource}; style-src 'unsafe-inline';">
   <title>Visual Preview</title>
   <style>
     body, html {

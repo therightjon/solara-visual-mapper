@@ -1,0 +1,74 @@
+(node:48771) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+(Use `Code Helper (Plugin) --trace-deprecation ...` to show where the warning was created)
+(node:48771) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+Checking whether to register object drop extension
+Registering object drop provider
+Registered object drop provider
+Created lock file at /Users/jonsteen/.claude/ide/43901.lock
+Set CLAUDE_CODE_SSE_PORT=43901 in terminal environment (in-memory)
+Set ENABLE_IDE_INTEGRATION=true in terminal environment (in-memory)
+[DEBUG] Resource server started on port 8829
+Solara Visual Mapper is now active
+[Solara Extension] Setting preview HTML content, will send preview-mode message in 500ms
+[Solara Extension] Sending preview-mode message to webview, mode: currentFile
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 85 4
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: No preview panel or editor
+[Solara Extension] Setting preview HTML content, will send preview-mode message in 500ms
+[Solara Extension] Sending preview-mode message to webview, mode: currentFile
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 98 33
+[Solara Extension] handleSelectionChange: Extracted selector: [data-code-id="hero-title"]
+[Solara Extension] handleSelectionChange: Sent highlight-element message to webview
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 97 16
+[Solara Extension] handleSelectionChange: Extracted selector: [data-code-id="header-section"]
+[Solara Extension] handleSelectionChange: Sent highlight-element message to webview
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 96 17
+[Solara Extension] handleSelectionChange: Extracted selector: [data-code-id="main-container"]
+[Solara Extension] handleSelectionChange: Sent highlight-element message to webview
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 32
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 33
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 36
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 39
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 42
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 44
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 106 47
+[Solara Extension] handleSelectionChange: Extracted selector: undefined
+[Solara Extension] handleSelectionChange: No selector extracted
+[Solara Extension] handleSelectionChange: Debounced (too soon)
+[Solara Extension] handleSelectionChange: Document: /Users/jonsteen/Downloads/Solara-Visual-Mapper/example.html
+[Solara Extension] handleSelectionChange: Position: 104 41
+[Solara Extension] handleSelectionChange: Extracted selector: [data-code-id="feature-highlighting"]
+[Solara Extension] handleSelectionChange: Sent highlight-element message to webview
