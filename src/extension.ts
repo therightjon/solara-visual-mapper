@@ -137,14 +137,17 @@ async function updatePreviewContent(context: vscode.ExtensionContext, mode: stri
   previewPanel.webview.html = getWebviewContent(scriptUri, nonce, iframeContent, errorMessage, mode);
   
   // Send preview-mode message to webview after HTML is set
+  // Increased timeout from 100ms to 500ms to ensure webview is ready
+  console.log('[Solara Extension] Setting preview HTML content, will send preview-mode message in 500ms');
   setTimeout(() => {
     if (previewPanel) {
+      console.log('[Solara Extension] Sending preview-mode message to webview, mode:', mode);
       previewPanel.webview.postMessage({
         type: 'preview-mode',
         mode: mode
       });
     }
-  }, 100);
+  }, 500);
 }
 
 function getWebviewContent(
@@ -215,11 +218,13 @@ function handleSelectionChange(
   context: vscode.ExtensionContext
 ) {
   if (!previewPanel || !event.textEditor) {
+    console.log('[Solara Extension] handleSelectionChange: No preview panel or editor');
     return;
   }
 
   const now = Date.now();
   if (now - lastHighlightTime < DEBOUNCE_MS) {
+    console.log('[Solara Extension] handleSelectionChange: Debounced (too soon)');
     return;
   }
   lastHighlightTime = now;
@@ -227,7 +232,12 @@ function handleSelectionChange(
   const document = event.textEditor.document;
   const position = event.selections[0].active;
 
+  console.log('[Solara Extension] handleSelectionChange: Document:', document.fileName);
+  console.log('[Solara Extension] handleSelectionChange: Position:', position.line, position.character);
+
   const selector = selectorFromContext(document, position);
+
+  console.log('[Solara Extension] handleSelectionChange: Extracted selector:', selector);
 
   if (selector) {
     previewPanel.webview.postMessage({
@@ -235,23 +245,40 @@ function handleSelectionChange(
       selector,
       meta: { source: 'cursor' }
     });
+    console.log('[Solara Extension] handleSelectionChange: Sent highlight-element message to webview');
+  } else {
+    console.log('[Solara Extension] handleSelectionChange: No selector extracted');
   }
 }
 
 function handleWebviewMessage(message: any, context: vscode.ExtensionContext) {
+  console.log('[Solara Extension] handleWebviewMessage: Received message type:', message.type);
+  
   if (message.type === 'focus-code') {
+    console.log('[Solara Extension] handleWebviewMessage: focus-code message received');
+    console.log('[Solara Extension] handleWebviewMessage: attributeType:', message.attributeType, 'value:', message.value);
+    
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
+      console.log('[Solara Extension] handleWebviewMessage: No active editor');
       return;
     }
+
+    console.log('[Solara Extension] handleWebviewMessage: Active editor:', editor.document.fileName);
 
     const { attributeType, value } = message;
     const range = findCodeLocation(editor.document, attributeType, value);
 
     if (range) {
+      console.log('[Solara Extension] handleWebviewMessage: Found code location at line:', range.start.line);
       editor.selection = new vscode.Selection(range.start, range.end);
       editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+      console.log('[Solara Extension] handleWebviewMessage: Cursor moved to code location');
+    } else {
+      console.log('[Solara Extension] handleWebviewMessage: Could not find code location for', attributeType, '=', value);
     }
+  } else {
+    console.log('[Solara Extension] handleWebviewMessage: Unknown message type:', message.type);
   }
 }
 
